@@ -1,33 +1,36 @@
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM. AutoConfig
 
-# ✅ Set device
+
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# ✅ Base model repo (for code + config)
 base_model_repo = "tiiuae/falcon-rw-1b"
+local_model_path = "models/falcon_dpo_runpod"
 
-# ✅ Local directory with fine-tuned weights
-dpo_model_path = "models/falcon_dpo_runpod"
-
-# ✅ Load tokenizer
+# Load tokenizer
 tokenizer = AutoTokenizer.from_pretrained(base_model_repo, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# ✅ Load base model
+# Step 1: Load config separately from base model
+config = AutoConfig.from_pretrained(base_model_repo, trust_remote_code=True)
+
+# Step 2: Now load the DPO model with local weights
+dpo_model = AutoModelForCausalLM.from_pretrained(
+    local_model_path,
+    config=config,
+    trust_remote_code=True
+).to(device)
+dpo_model.eval()
+
+# Step 3: Load base model for comparison (same config)
 base_model = AutoModelForCausalLM.from_pretrained(
     base_model_repo,
+    config=config,
     trust_remote_code=True
 ).to(device)
 base_model.eval()
 
-# ✅ Load DPO-trained model (use base repo for config/code, local for weights)
-dpo_model = AutoModelForCausalLM.from_pretrained(
-    dpo_model_path,
-    trust_remote_code=True,
-    config=base_model_repo  # <- This pulls architecture code
-).to(device)
-dpo_model.eval()
 
 # 🔁 Shared prompt set for comparison
 prompts = [
