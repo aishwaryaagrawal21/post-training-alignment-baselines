@@ -34,17 +34,20 @@ prompts = [
 
 def generate_response(model, prompt):
     inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True).to(device)
+    
     with torch.no_grad():
         output_ids = model.generate(
             **inputs,
             max_new_tokens=100,
             do_sample=False,
-            temperature=0.7,
-            top_p=0.9,
             repetition_penalty=1.2,
+            use_cache=False,  # 💥 Disable Falcon's past_key_values
+            pad_token_id=tokenizer.pad_token_id,
             eos_token_id=tokenizer.eos_token_id
         )
+    
     return tokenizer.decode(output_ids[0], skip_special_tokens=True, errors="replace").strip()
+
 
 # Compare outputs
 for prompt in prompts:
