@@ -16,14 +16,12 @@ base_model.eval()
 
 # 🔸 Load DPO model: Falcon base + your fine-tuned weights
 dpo_model = AutoModelForCausalLM.from_pretrained(
-    "tiiuae/falcon-rw-1b",
+    "models/falcon_dpo_runpod",
     trust_remote_code=True
-)
-dpo_model.load_state_dict(
-    torch.load("models/falcon_dpo_runpod/pytorch_model.bin", map_location=device)
-)
-dpo_model.to(device)
+).to(device)
 dpo_model.eval()
+
+
 
 # 🧪 Prompts to evaluate
 prompts = [
