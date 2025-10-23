@@ -2,23 +2,22 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from safetensors.torch import load_file
 
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Load tokenizer from Falcon base
+# Load tokenizer from base
 tokenizer = AutoTokenizer.from_pretrained("tiiuae/falcon-rw-1b", trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Load base model
+# Load fine-tuned model from local folder — FULL SHARD SET
 dpo_model = AutoModelForCausalLM.from_pretrained(
-    "tiiuae/falcon-rw-1b",
+    "models/falcon_dpo_runpod",
     trust_remote_code=True
-)
+).to(device)
+dpo_model.eval()
 
-# ✅ Load your fine-tuned weights
-state_dict = load_file("models/falcon_dpo_runpod/model-00001-of-00002.safetensors")
-dpo_model.load_state_dict(state_dict, strict=False)
-
-dpo_model = dpo_model.to(device).eval()
 
 # Also load base model for comparison
 base_model = AutoModelForCausalLM.from_pretrained("tiiuae/falcon-rw-1b", trust_remote_code=True).to(device).eval()
