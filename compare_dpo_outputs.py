@@ -29,11 +29,13 @@ def generate_response(model, prompt):
     with torch.no_grad():
         output_ids = model.generate(
             **inputs,
-            max_new_tokens=100,
+            max_new_tokens=50,
             do_sample=False,
             temperature=0.7,
             top_p=0.9,
-            eos_token_id=tokenizer.eos_token_id
+            eos_token_id=tokenizer.eos_token_id, 
+            repetition_penalty=1.2
+
         )
     decoded = tokenizer.decode(output_ids[0], skip_special_tokens=True)
     return decoded.strip()
