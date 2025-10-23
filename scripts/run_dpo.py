@@ -22,10 +22,10 @@ def main():
         num_train_epochs=1,
         logging_steps=10,
         # evaluation_strategy="steps",
-        save_strategy="steps",
-        save_steps=100, 
+        # save_strategy="steps",
+        # save_steps=100, 
         eval_steps=50,
-        # save_strategy="no",
+        save_strategy="no",
         output_dir="models/falcon_dpo_runpod",
         report_to="none", 
         fp16=True
