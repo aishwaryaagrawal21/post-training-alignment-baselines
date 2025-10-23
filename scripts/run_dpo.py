@@ -8,7 +8,7 @@ def main():
     eval_dataset = dataset["test"].select(range(20))
 
 
-    model_name = "sshleifer/tiny-gpt2"
+    model_name = "tiiuae/falcon-rw-1b"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -16,15 +16,19 @@ def main():
 
     dpo_args = DPOConfig(
         beta=0.1,
-        learning_rate=1e-4,
+        learning_rate=5e-5,
         per_device_train_batch_size=1,
+        gradient_accumulation_steps=4, 
         num_train_epochs=1,
-        logging_steps=5,
+        logging_steps=10,
         # evaluation_strategy="steps",
-        eval_steps=10,
+        save_strategy="steps",
+        save_steps=100, 
+        eval_steps=50,
         save_strategy="no",
-        output_dir="models/tiny_dpo_debug",
-        report_to="none"
+        output_dir="models/falcon_dpo_runpod",
+        report_to="none", 
+        fp16=True
     )
 
     trainer = DPOTrainer(
@@ -38,11 +42,11 @@ def main():
 
     trainer.train()
     # Save the model manually
-    trainer.save_model("models/tiny_dpo_debug")
-    tokenizer.save_pretrained("models/tiny_dpo_debug")
+    trainer.save_model("models/falcon_dpo_runpod")
+    tokenizer.save_pretrained("models/falcon_dpo_runpod")
 
 
-    print("✅ DPO pipeline completed on debug mode.")
+    print("✅ DPO pipeline completed on falcon")
 
 
 if __name__ == "__main__":
