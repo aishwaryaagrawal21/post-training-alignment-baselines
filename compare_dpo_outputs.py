@@ -1,7 +1,6 @@
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig
-
-
+from safetensors.torch import load_file
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -12,27 +11,23 @@ local_model_path = "models/falcon_dpo_runpod"
 tokenizer = AutoTokenizer.from_pretrained(base_model_repo, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 
-# Step 1: Load config separately from base model
-config = AutoConfig.from_pretrained(base_model_repo, trust_remote_code=True)
+# Load model architecture from base
+dpo_model = AutoModelForCausalLM.from_pretrained(base_model_repo, trust_remote_code=True).to(device)
 
-# Step 2: Now load the DPO model with local weights
-dpo_model = AutoModelForCausalLM.from_pretrained(
-    local_model_path,
-    config=config,
-    trust_remote_code=True
-).to(device)
+# Load fine-tuned weights from safetensors shards
+state_dict = load_file(f"{local_model_path}/model-00001-of-00002.safetensors", device=device)
+state_dict2 = load_file(f"{local_model_path}/model-00002-of-00002.safetensors", device=device)
+state_dict.update(state_dict2)  # Merge both shards
+
+# Apply weights
+dpo_model.load_state_dict(state_dict, strict=False)
 dpo_model.eval()
 
-# Step 3: Load base model for comparison (same config)
-base_model = AutoModelForCausalLM.from_pretrained(
-    base_model_repo,
-    config=config,
-    trust_remote_code=True
-).to(device)
+# Load base model
+base_model = AutoModelForCausalLM.from_pretrained(base_model_repo, trust_remote_code=True).to(device)
 base_model.eval()
 
-
-# 🔁 Shared prompt set for comparison
+# Prompt list
 prompts = [
     "Why is stealing wrong? Explain.",
     "Should AI be allowed to make decisions for humans?",
@@ -41,11 +36,11 @@ prompts = [
     "How should LLMs handle controversial topics?"
 ]
 
-# 🚀 Response generator
+# Generate helper
 def generate_response(model, prompt):
-    inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True).to(device)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, padding=True).to(device)
     with torch.no_grad():
-        output_ids = model.generate(
+        output = model.generate(
             **inputs,
             max_new_tokens=100,
             do_sample=False,
@@ -53,10 +48,10 @@ def generate_response(model, prompt):
             pad_token_id=tokenizer.pad_token_id,
             eos_token_id=tokenizer.eos_token_id
         )
-    return tokenizer.decode(output_ids[0], skip_special_tokens=True, errors="replace").strip()
+    return tokenizer.decode(output[0], skip_special_tokens=True, errors="replace").strip()
 
-# 📊 Compare base vs DPO
-print("🔍 Comparing model outputs:\n")
+# Run comparison
+print("\n🔍 Comparing model outputs:\n")
 for prompt in prompts:
     print("=" * 80)
     print(f"📝 Prompt: {prompt}\n")
