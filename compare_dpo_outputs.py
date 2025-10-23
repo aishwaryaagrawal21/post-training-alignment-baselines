@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM. AutoConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig
 
 
 
