@@ -22,14 +22,14 @@ def main():
     ]
 
     #loading the base model
-    base_model_name = "sshleifer/tiny-gpt2"
+    base_model_name = "tiiuae/falcon-rw-1b"
     tokenizer = AutoTokenizer.from_pretrained(base_model_name)
     tokenizer.pad_token = tokenizer.eos_token
     base_model = AutoModelForCausalLM.from_pretrained(base_model_name)
     base_model.eval()
 
     #loading the DPO-trained Model 
-    dpo_model = AutoModelForCausalLM.from_pretrained("models/tiny_dpo_debug")
+    dpo_model = AutoModelForCausalLM.from_pretrained("models/falcon_dpo_runpod")
     dpo_model.eval()    
 
     print("\n🔍 Comparing model outputs:\n")
