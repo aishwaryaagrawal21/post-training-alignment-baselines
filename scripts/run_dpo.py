@@ -1,53 +1,78 @@
-from datasets import load_dataset
+import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from trl import DPOTrainer, DPOConfig
+from datasets import load_dataset
+import wandb
+import logging
+logging.getLogger("wandb").setLevel(logging.ERROR)
 
-def main():
-    dataset = load_dataset("Anthropic/hh-rlhf")
-    train_dataset = dataset["train"].select(range(100))
-    eval_dataset = dataset["test"].select(range(20))
 
+# Model and run setup
+MODEL_NAME = "sshleifer/tiny-gpt2"  # swap with "mistralai/Mistral-7B-v0.1" for real runs
+PROJECT_NAME = "dpo-mistral-test"
+RUN_NAME = "mistral-dpo-run"
 
-    model_name = "tiiuae/falcon-rw-1b"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    tokenizer.pad_token = tokenizer.eos_token
+# Init wandb
+wandb.init(project=PROJECT_NAME, name=RUN_NAME)
 
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+# Load model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+tokenizer.pad_token = tokenizer.eos_token  # Avoid padding errors
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16)
 
-    dpo_args = DPOConfig(
-        beta=0.1,
-        learning_rate=5e-5,
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=4, 
-        num_train_epochs=1,
-        logging_steps=10,
-        # evaluation_strategy="steps",
-        # save_strategy="steps",
-        # save_steps=100, 
-        eval_steps=50,
-        save_strategy="no",
-        output_dir="models/falcon_dpo_runpod",
-        report_to="none", 
-        fp16=True
+# Load and preprocess dataset
+dataset = load_dataset("Anthropic/hh-rlhf")["train"].select(range(1000))
+
+def flatten(example):
+    return {
+        # "prompt": example["prompt"],  # or "" if you don't have it
+        "chosen": example["chosen"],
+        "rejected": example["rejected"]
+    }
+
+def tokenize_fn(example):
+    chosen = tokenizer(
+        example["chosen"],
+        truncation=True,
+        padding=False,
+        return_tensors=None,
     )
-
-    trainer = DPOTrainer(
-        model=model,
-        ref_model=None,
-        args=dpo_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        # tokenizer=tokenizer,
+    rejected = tokenizer(
+        example["rejected"],
+        truncation=True,
+        padding=False,
+        return_tensors=None,
     )
+    return {
+        "chosen_input_ids": chosen["input_ids"],
+        "rejected_input_ids": rejected["input_ids"],
+    }
 
-    trainer.train()
-    # Save the model manually
-    trainer.save_model("models/falcon_dpo_runpod")
-    tokenizer.save_pretrained("models/falcon_dpo_runpod")
+dataset = dataset.map(flatten)
+dataset = dataset.map(tokenize_fn)
 
+   
 
-    print("✅ DPO pipeline completed on falcon")
+# DPO Config
+config = DPOConfig(
+    beta=0.1,
+    per_device_train_batch_size=2,
+    learning_rate=1e-5,
+    logging_steps=10,
+    save_steps=100,
+    output_dir="./dpo_output",
+    num_train_epochs=1,
+    report_to="wandb",
+    remove_unused_columns=False,
+)
 
+# Initialize trainer (note: no tokenizer here!)
+trainer = DPOTrainer(
+    model=model,
+    ref_model=None,
+    args=config,
+    train_dataset=dataset,
+)
 
-if __name__ == "__main__":
-    main()
+# Train
+trainer.train()
